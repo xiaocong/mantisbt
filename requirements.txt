@@ -1,0 +1,2 @@
+PySimpleSOAP==1.16
+soap2py==1.16
