@@ -5,6 +5,7 @@ Update mantis ticket.
 
 Usage:
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] resolve <ticket>...
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] suspend <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> comment <comment> <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> versions
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> customfields
@@ -250,6 +251,36 @@ class MantisBT(object):
             except:
                 pass
 
+    def suspend(self, ticket_id):
+        issue = self.client.mc_issue_get(
+            username=self.username,
+            password=self.password,
+            issue_id=int(ticket_id)
+        )["return"]
+        return self.client.mc_issue_update(
+            username=self.username,
+            password=self.password,
+            issueId=int(ticket_id),
+            issue={
+                "status": {
+                    "id": config.TICKET_SUSPEND_STATUS
+                },
+                "project": {
+                    "id": int(issue.get("project").get("id"))
+                },
+                "reporter": {
+                    "id": int(issue.get("reporter").get("id"))
+                },
+                "handler": {
+                    "id": int(issue.get("handler").get("id"))
+                },
+                "summary": unicode(issue.get("summary")),
+                "description": unicode(issue.get("description")),
+                "category": unicode(issue.get("category")),
+                "due_date": issue.get("due_date") or datetime.now(),
+            }
+        )["return"]
+
     def resolve(self, ticket_id):
         issue = self.client.mc_issue_get(
             username=self.username,
@@ -403,6 +434,14 @@ def main(args):
                 if args["--comment"]:
                     mantis.comment(t, args["--comment"])
                 mantis.resolve(t)
+            except:
+                pass
+    elif args["suspend"]:
+        for t in args["<ticket>"]:
+            try:
+                if args["--comment"]:
+                    mantis.comment(t, args["--comment"])
+                mantis.suspend(t)
             except:
                 pass
     elif args["comment"]:

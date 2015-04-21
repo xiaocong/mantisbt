@@ -7,6 +7,10 @@ Install
 How to use
 ==========
 
+# 将ticket状态改为Suspend状态(缺省code为60)
+
+    python mantis.py --wsdl="http://mantis.xxx.xxx/api/soap/mantisconnect.php?wsdl" --username=username --password=password --comment="工程师xxx以及在change id http://xxx/change/xxx 提交了本问题的补丁。" suspend 1234 1235 1236
+
 # 将ticket状态改为Resolve状态(缺省code为80)
 
     python mantis.py --wsdl="http://mantis.xxx.xxx/api/soap/mantisconnect.php?wsdl" --username=username --password=password --comment="在版本号xx.xx.xx修正本问题。" resolve 1234 1235 1236
