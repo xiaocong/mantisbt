@@ -1,2 +1,5 @@
+docopt==0.6.2
 PySimpleSOAP==1.16
+python-dateutil==2.4.2
+six==1.9.0
 soap2py==1.16
