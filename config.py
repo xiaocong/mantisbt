@@ -15,17 +15,3 @@ TICKET_STATUS = {
 TICKET_RESOLVED_STATUS = 80
 TICKET_INTEGRATED_STATUS = 80
 TICKET_FIXED_RESOLUTION = 20
-
-PROJECTS_NAME = [
-    "AppRelease",
-    "down",
-    "Ice Sky-Android",
-    "Ice Sky-System",
-    "Product-Ice Sky",
-    "Product-San Francisco",
-    "Product-San Francisco-CDMA",
-    "Product-San Francisco-LTE",
-    "product-tool",
-    "San Francisco-Android",
-    "SmartisanOS",
-]

@@ -363,7 +363,7 @@ def main(args):
         url=args["--wsdl"] or "http://mantis.smartisan.cn/api/soap/mantisconnect.php?wsdl"
     )
     if args["arrival"]:
-        print json.dumps(mantis.arrival_summary(config.PROJECTS_NAME), indent=2)
+        print json.dumps(mantis.arrival_summary(map(lambda p: p["name"], mantis.projects)), indent=2)
     elif args["priorities"]:
         for p in mantis.priorities:
             print p.id, p.name
