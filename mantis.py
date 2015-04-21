@@ -4,8 +4,12 @@
 Update mantis ticket.
 
 Usage:
-mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --changeid=<gerrit_changeid> resolve <ticket>...
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] resolve <ticket>...
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> versions
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> customfields
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> [--description=<description>] [--released] addversions <version>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> arrival
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> projects
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> priorities
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> severities
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> status
@@ -22,6 +26,7 @@ from pysimplesoap.client import SoapClient
 from collections import defaultdict
 import json
 import re
+from datetime import datetime
 
 import config
 
@@ -56,8 +61,11 @@ class MantisBT(object):
         self._priorities = None
         self._severities = None
         self._resolutions = None
+        self._projects = None
 
     def comment(self, ticket, content):
+        if type(content) is str:
+            content = content.decode("utf-8")
         self.client.mc_issue_note_add(
             username=self.username,
             password=self.password,
@@ -122,6 +130,68 @@ class MantisBT(object):
             )
         return self._resolutions
 
+    @property
+    def projects(self):
+        if not self._projects:
+
+            def _proj(proj):
+                return {
+                    "id": int(proj["item"].id),
+                    "name": unicode(proj["item"].name)
+                }
+            projs = self.client.mc_projects_get_user_accessible(
+                username=self.username,
+                password=self.password
+            )['return']
+            self._projects = map(_proj, projs)
+        return self._projects
+
+    def versions(self, project):
+        if type(project) is int or type(project) is long:
+            pid = project
+        elif any(map(lambda p: p.get("name") == project, self.projects)):
+            pid = filter(lambda p: p.get("name") == project, self.projects)[0].get("id")
+        else:
+            raise Exception("Project: %s does not exist!" % project)
+        return self.client.mc_project_get_versions(
+            username=self.username,
+            password=self.password,
+            project_id=pid
+        )["return"]
+
+    def customfields(self, project):
+        if type(project) is int or type(project) is long:
+            pid = project
+        elif any(map(lambda p: p.get("name") == project, self.projects)):
+            pid = filter(lambda p: p.get("name") == project, self.projects)[0].get("id")
+        else:
+            raise Exception("Project: %s does not exist!" % project)
+        return self.client.mc_project_get_custom_fields(
+            username=self.username,
+            password=self.password,
+            project_id=pid
+        )["return"]
+
+    def addversion(self, project, version, date=None, description=None, released=False, obsolete=False):
+        if type(project) is int or type(project) is long:
+            pid = project
+        elif any(map(lambda p: p.get("name") == project, self.projects)):
+            pid = filter(lambda p: p.get("name") == project, self.projects)[0].get("id")
+        else:
+            raise Exception("Project: %s does not exist!" % project)
+        return self.client.mc_project_version_add(
+            username=self.username,
+            password=self.password,
+            version={
+                "name": version,
+                "project_id": pid,
+                "date_order": date or datetime.now(),
+                "description": description or version,
+                "released": released,
+                "obsolete": obsolete
+            }
+        )["return"]
+
     def value_of(self, prop, name):
         default = "null"
         if not name:
@@ -172,6 +242,39 @@ class MantisBT(object):
                     yield issue
             except:
                 pass
+
+    def resolve(self, ticket_id):
+        issue = self.client.mc_issue_get(
+            username=self.username,
+            password=self.password,
+            issue_id=int(ticket_id)
+        )["return"]
+        return self.client.mc_issue_update(
+            username=self.username,
+            password=self.password,
+            issueId=int(ticket_id),
+            issue={
+                "status": {
+                    "id": config.TICKET_RESOLVED_STATUS
+                },
+                "project": {
+                    "id": int(issue.get("project").get("id"))
+                },
+                "reporter": {
+                    "id": int(issue.get("reporter").get("id"))
+                },
+                "handler": {
+                    "id": int(issue.get("handler").get("id"))
+                },
+                "summary": unicode(issue.get("summary")),
+                "description": unicode(issue.get("description")),
+                "category": unicode(issue.get("category")),
+                "due_date": issue.get("due_date") or datetime.now(),
+                "resolution": {
+                    "id": config.TICKET_FIXED_RESOLUTION,
+                },
+            }
+        )["return"]
 
     def live_tickets(self, project_name):
         pid = self.projectId(project_name)
@@ -273,6 +376,25 @@ def main(args):
     elif args["resolutions"]:
         for p in mantis.resolutions:
             print p.id, p.name
+    elif args["projects"]:
+        for p in mantis.projects:
+            print p["id"], p["name"]
+    elif args["versions"]:
+        for p in mantis.versions(args["--project"]):
+            print p
+    elif args["customfields"]:
+        for p in mantis.customfields(args["--project"]):
+            print p['item'].field.id, p['item'].field.name
+    elif args["addversions"]:
+        for ver in args["<version>"]:
+            mantis.addversion(args["--project"], ver, datetime.now(), description=args["--description"], released=args["--released"])
+        for p in mantis.versions(args["--project"]):
+            print p
+    elif args["resolve"]:
+        for t in args["<ticket>"]:
+            if args["--comment"]:
+                mantis.comment(t, args["--comment"])
+            mantis.resolve(t)
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='MantisBT 1.0')
