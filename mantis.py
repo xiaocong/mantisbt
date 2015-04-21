@@ -19,8 +19,14 @@ mantis.py (-h | --help)
 mantis.py --version
 
 Options:
--h --help     Show this screen.
---version     Show version.
+-h --help                   显示帮助.
+--version                   显示版本信息.
+--wsdl=<wsdl>               Mantis Soap API WSDL, 应当如后面的格式："http://mantis.your.domain/<endpoint>/api/soap/mantisconnect.php?wsdl"
+--username=<username>       登录的用户名.
+--password=<password>       登录的密码.
+--comment=<comment>         增加到ticket的备注，如果中间有空格，可以用引号"包含起来.
+--project=<project>         项目名称，如果项目名称中间有空格，可以用引号"包含起来.
+<ticket>...                 空格隔开的ticket列表，例如: 1234 1245 1345
 """
 from docopt import docopt
 from pysimplesoap.client import SoapClient
@@ -393,12 +399,18 @@ def main(args):
             print p
     elif args["resolve"]:
         for t in args["<ticket>"]:
-            if args["--comment"]:
-                mantis.comment(t, args["--comment"])
-            mantis.resolve(t)
+            try:
+                if args["--comment"]:
+                    mantis.comment(t, args["--comment"])
+                mantis.resolve(t)
+            except:
+                pass
     elif args["comment"]:
         for t in args["<ticket>"]:
-            mantis.comment(t, args["<comment>"])
+            try:
+                mantis.comment(t, args["<comment>"])
+            except:
+                pass
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='MantisBT 1.0')
