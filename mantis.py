@@ -5,6 +5,7 @@ Update mantis ticket.
 
 Usage:
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] resolve <ticket>...
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> comment <comment> <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> versions
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> customfields
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> [--description=<description>] [--released] addversions <version>...
@@ -395,6 +396,9 @@ def main(args):
             if args["--comment"]:
                 mantis.comment(t, args["--comment"])
             mantis.resolve(t)
+    elif args["comment"]:
+        for t in args["<ticket>"]:
+            mantis.comment(t, args["<comment>"])
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='MantisBT 1.0')
