@@ -6,6 +6,7 @@ Update mantis ticket.
 Usage:
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] resolve <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> [--comment=<comment>] suspend <ticket>...
+mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> ticket <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> comment <comment> <ticket>...
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> versions
 mantis.py [--wsdl=<wsdl>] --username=<username> --password=<password> --project=<project> customfields
@@ -37,18 +38,7 @@ import re
 from datetime import datetime
 
 import config
-
-
-def toDate(dt):
-    return dt.strftime("%Y%m%d")
-
-
-def toWeek(dt):
-    return dt.strftime("%YW%W")
-
-
-def toMonth(dt):
-    return dt.strftime("%Y%m")
+from model import toDate, toWeek, toMonth
 
 
 class MantisBT(object):
@@ -87,8 +77,8 @@ class MantisBT(object):
         return self.client.mc_issue_get(
             username=self.username,
             password=self.password,
-            issue_id=issue_id
-        )
+            issue_id=int(issue_id)
+        )['return']
 
     @property
     def status(self):
@@ -339,7 +329,7 @@ class MantisBT(object):
                 "priority": defaultdict(int),
                 "severity": defaultdict(int),
                 "category": defaultdict(int),
-                "reporter": defaultdict(int)
+                "reporter": defaultdict(int),
             }
 
         def default_proj_sum():
@@ -350,11 +340,18 @@ class MantisBT(object):
                 "resolution": defaultdict(int),
                 "category": defaultdict(int),
                 "reporter": defaultdict(int),
+                "handler": defaultdict(int),
                 "status": defaultdict(int),
                 "date": defaultdict(default_sum),
                 "week": defaultdict(default_sum),
                 "month": defaultdict(default_sum),
             }
+
+        def _replace_invalid_char(s):
+            if s:
+                return s.replace("$", "#").replace(".", "_")
+            else:
+                return "null"
 
         sum = defaultdict(default_proj_sum)
         for t in self.tickets(project_names):
@@ -364,32 +361,57 @@ class MantisBT(object):
             priority = self.value_of("priorities", t["priority"]["name"])
             resolution = self.value_of("resolutions", t["resolution"]["name"])
             status = self.value_of("status", t["status"]["name"])
-            reporter = t["reporter"].get("name") or t["reporter"].get("email")
+            if "reporter" in t:
+                reporter = t["reporter"].get("name") or t["reporter"].get("email")
+            else:
+                reporter = "null"
+            if "handler" in t:
+                handler = t["handler"].get("name") or t["handler"].get("email")
+            else:
+                handler = "null"
+
+            project = _replace_invalid_char(project)
+            category = _replace_invalid_char(category)
+            severity = _replace_invalid_char(severity)
+            priority = _replace_invalid_char(priority)
+            resolution = _replace_invalid_char(resolution)
+            status = _replace_invalid_char(status)
+            reporter = _replace_invalid_char(reporter)
+            handler = _replace_invalid_char(handler)
+
             sum[project]["total"] += 1
-            sum[project]["severity"][severity] += 1
-            sum[project]["priority"][priority] += 1
-            sum[project]["category"][category] += 1
-            sum[project]["resolution"][resolution] += 1
-            sum[project]["status"][status] += 1
-            sum[project]["reporter"][reporter] += 1
+            if severity:
+                sum[project]["severity"][severity] += 1
+            if priority:
+                sum[project]["priority"][priority] += 1
+            if category:
+                sum[project]["category"][category] += 1
+            if resolution:
+                sum[project]["resolution"][resolution] += 1
+            if status:
+                sum[project]["status"][status] += 1
+            if reporter:
+                sum[project]["reporter"][reporter] += 1
+            if handler:
+                sum[project]["handler"][handler] += 1
+
+            def _update_duration(data):
+                data["total"] += 1
+                if priority:
+                    data["priority"][priority] += 1
+                if severity:
+                    data["severity"][severity] += 1
+                if category:
+                    data["category"][category] += 1
+                if reporter:
+                    data["reporter"][reporter] += 1
+
             date = toDate(t["date_submitted"])
-            sum[project]["date"][date]["total"] += 1
-            sum[project]["date"][date]["priority"][priority] += 1
-            sum[project]["date"][date]["severity"][severity] += 1
-            sum[project]["date"][date]["category"][category] += 1
-            sum[project]["date"][date]["reporter"][reporter] += 1
+            _update_duration(sum[project]["date"][date])
             week = toWeek(t["date_submitted"])
-            sum[project]["week"][week]["total"] += 1
-            sum[project]["week"][week]["priority"][priority] += 1
-            sum[project]["week"][week]["severity"][severity] += 1
-            sum[project]["week"][week]["category"][category] += 1
-            sum[project]["week"][week]["reporter"][reporter] += 1
+            _update_duration(sum[project]["week"][week])
             month = toMonth(t["date_submitted"])
-            sum[project]["month"][month]["total"] += 1
-            sum[project]["month"][month]["priority"][priority] += 1
-            sum[project]["month"][month]["severity"][severity] += 1
-            sum[project]["month"][month]["category"][category] += 1
-            sum[project]["month"][month]["reporter"][reporter] += 1
+            _update_duration(sum[project]["month"][month])
             # print t["id"], t["version"], t["summary"]
         return sum
 
@@ -402,6 +424,10 @@ def main(args):
     )
     if args["arrival"]:
         print json.dumps(mantis.arrival_summary(map(lambda p: p["name"], mantis.projects)), indent=2)
+    elif args["ticket"]:
+        for t in args["<ticket>"]:
+            ticket = mantis.issue(t)
+            print "%s\t%s\t%s\t%s" % (t, ticket.get("status").get("name"), ticket.get("category"), ticket.get("summary"))
     elif args["priorities"]:
         for p in mantis.priorities:
             print p.id, p.name

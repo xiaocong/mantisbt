@@ -1,0 +1,8 @@
+[MONGODB]
+url=mongodb://localhost:27017
+name=ticket_stat
+
+[MANTIS]
+wsdl=http://mantis.xxxx.com/api/soap/mantisconnect.php?wsdl
+username=username
+password=password
